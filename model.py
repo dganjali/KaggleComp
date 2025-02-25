@@ -20,9 +20,8 @@ def load_data(csv_path, image_dir, image_size=(64, 64)):
     y = np.array(y).astype(np.float32)
     return X, y
 
-# Load data
-csv_path = 'data.csv'
-image_dir = 'images'
+csv_path = '/archive/train.csv'
+image_dir = '/archive/train_data'
 X_train, y_train = load_data(csv_path, image_dir)
 X_test, y_test = load_data(csv_path, image_dir)
 
