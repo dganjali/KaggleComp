@@ -78,7 +78,7 @@ model = create_model((64, 64, 1))
 
 print("\nStarting model training...")
 history = model.fit(X_train, y_train, epochs=20, batch_size=64, 
-                    validation_data=(X_test, y_test), verbose=1)
+                    validation_data=(X_test), verbose=1)
 print("Model training completed")
 
 print("\nSaving model...")
@@ -90,5 +90,5 @@ train_loss, train_accuracy = model.evaluate(X_train, y_train, verbose=1)
 print(f'Training Accuracy: {train_accuracy:.4f}')
 
 print("\nEvaluating model on test data...")
-test_loss, test_accuracy = model.evaluate(X_test, y_test, verbose=1)
+test_loss, test_accuracy = model.evaluate(X_test, verbose=1)
 print(f'Test Accuracy: {test_accuracy:.4f}')
