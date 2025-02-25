@@ -6,29 +6,57 @@ import pandas as pd
 import cv2
 import os
 
-def load_data(csv_path, image_dir, image_size=(64, 64)):
+def load_data(csv_path, image_dir, image_size=(64, 64), is_test=False):
+    print(f"Loading data from {csv_path}")
+    print(f"Images will be loaded from {image_dir}")
+    
     df = pd.read_csv(csv_path)
-    X, y = [], []
-    for _, row in df.iterrows():
-        filename = row["file_name"]  # use the 'file_name' column
-        label = row["label"]         # use the 'label' column
+    print(f"Successfully loaded CSV with {len(df)} rows")
+    
+    X = []
+    y = [] if not is_test else None
+    
+    for i, row in enumerate(df.itertuples()):
+        if i % 100 == 0:  # Print progress every 100 images
+            print(f"Processing image {i}/{len(df)}")
+            
+        # For test data, use id as filename
+        filename = row.id if is_test else row.file_name
+        if not is_test:
+            label = row.label
+            
         image_path = os.path.join(image_dir, filename)
         image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
         if image is not None:
             image = cv2.resize(image, image_size)
             X.append(image)
-            y.append(label)
+            if not is_test:
+                y.append(label)
+    
     X = np.array(X).astype(np.float32) / 255.0
     X = X.reshape(X.shape[0], image_size[0], image_size[1], 1)
-    y = np.array(y).astype(np.float32)
-    return X, y
+    
+    if not is_test:
+        y = np.array(y).astype(np.float32)
+        print(f"Final dataset shape: X={X.shape}, y={y.shape}")
+        return X, y
+    else:
+        print(f"Final test data shape: X={X.shape}")
+        return X, None
 
+print("Loading training data...")
 csv_path = 'archive/train.csv'
 image_dir = 'archive/'
 X_train, y_train = load_data(csv_path, image_dir)
-X_test, y_test = load_data(csv_path, image_dir)
+print("Training data loaded successfully")
+
+print("Loading test data...")
+csv_path = 'archive/test.csv'
+X_test, _ = load_data(csv_path, image_dir, is_test=True)
+print("Test data loaded successfully")
 
 def create_model(input_shape):
+    print(f"Creating model with input shape: {input_shape}")
     model = keras.Sequential([
         layers.Conv2D(32, (3, 3), activation='relu', input_shape=input_shape),
         layers.MaxPooling2D((2, 2)),
@@ -41,16 +69,26 @@ def create_model(input_shape):
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=0.001), 
                   loss='binary_crossentropy', 
                   metrics=['accuracy'])
+    print("Model created and compiled successfully")
+    model.summary()  # Print model architecture
     return model
 
+print("\nInitializing model...")
 model = create_model((64, 64, 1))
+
+print("\nStarting model training...")
 history = model.fit(X_train, y_train, epochs=20, batch_size=64, 
                     validation_data=(X_test, y_test), verbose=1)
+print("Model training completed")
 
+print("\nSaving model...")
 model.save("model_params.h5")
+print("Model saved successfully")
 
-train_loss, train_accuracy = model.evaluate(X_train, y_train, verbose=0)
+print("\nEvaluating model on training data...")
+train_loss, train_accuracy = model.evaluate(X_train, y_train, verbose=1)
 print(f'Training Accuracy: {train_accuracy:.4f}')
 
-test_loss, test_accuracy = model.evaluate(X_test, y_test, verbose=0)
+print("\nEvaluating model on test data...")
+test_loss, test_accuracy = model.evaluate(X_test, y_test, verbose=1)
 print(f'Test Accuracy: {test_accuracy:.4f}')
