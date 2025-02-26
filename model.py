@@ -6,7 +6,7 @@ import pandas as pd
 import cv2
 import os
 
-def load_data(csv_path, image_dir, image_size=(64, 64), is_test=False):
+def load_data(csv_path, image_dir, image_size=(500, 500), is_test=False):
     print(f"Loading data from {csv_path}")
     print(f"Images will be loaded from {image_dir}")
 
@@ -62,23 +62,26 @@ def create_model(input_shape):
         layers.MaxPooling2D((2, 2)),
         layers.Conv2D(64, (3, 3), activation='relu'),
         layers.MaxPooling2D((2, 2)),
+        layers.Conv2D(128, (3, 3), activation='relu'),
+        layers.MaxPooling2D((2, 2)),
         layers.Flatten(),
-        layers.Dense(64, activation='relu'),
+        layers.Dense(128, activation='relu'),
+        layers.Dropout(0.5),
         layers.Dense(1, activation='sigmoid')
     ])
-    model.compile(optimizer=keras.optimizers.Adam(learning_rate=0.001), 
-                  loss='binary_crossentropy', 
+    model.compile(optimizer=keras.optimizers.Adam(learning_rate=0.001),
+                  loss='binary_crossentropy',
                   metrics=['accuracy'])
     print("Model created and compiled successfully")
     model.summary()  # Print model architecture
     return model
 
 print("\nInitializing model...")
-model = create_model((64, 64, 1))
+model = create_model((500, 500, 1))
 
 print("\nStarting model training...")
 history = model.fit(X_train, y_train, epochs=20, batch_size=64, 
-                    validation_data=(X_test), verbose=1)
+                    validation_split=0.2, verbose=1)
 print("Model training completed")
 
 print("\nSaving model...")
@@ -89,6 +92,6 @@ print("\nEvaluating model on training data...")
 train_loss, train_accuracy = model.evaluate(X_train, y_train, verbose=1)
 print(f'Training Accuracy: {train_accuracy:.4f}')
 
-print("\nEvaluating model on test data...")
-test_loss, test_accuracy = model.evaluate(X_test, verbose=1)
-print(f'Test Accuracy: {test_accuracy:.4f}')
+#print("\nEvaluating model on test data...")
+#test_loss, test_accuracy = model.evaluate(X_test, verbose=1)
+#print(f'Test Accuracy: {test_accuracy:.4f}')
