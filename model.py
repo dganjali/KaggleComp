@@ -6,7 +6,7 @@ import pandas as pd
 import cv2
 import os
 
-def load_data(csv_path, image_dir, target_size=(256, 256), is_test=False):
+def load_data(csv_path, image_dir, target_size=(500, 500), is_test=False):
     print(f"Loading data from {csv_path}")
     print(f"Images will be loaded from {image_dir}")
     
