@@ -6,7 +6,7 @@ import pandas as pd
 import cv2
 import os
 
-def load_data(csv_path, image_dir, image_size=(500, 500), is_test=False):
+def load_data(csv_path, image_dir, image_size=(256, 256), is_test=False):
     print(f"Loading data from {csv_path}")
     print(f"Images will be loaded from {image_dir}")
 
@@ -77,7 +77,7 @@ def create_model(input_shape):
     return model
 
 print("\nInitializing model...")
-model = create_model((500, 500, 1))
+model = create_model((256, 256, 1))
 
 print("\nStarting model training...")
 history = model.fit(X_train, y_train, epochs=20, batch_size=64, 
