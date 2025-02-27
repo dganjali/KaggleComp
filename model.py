@@ -6,7 +6,7 @@ import pandas as pd
 import cv2
 import os
 
-# temp code to make sure PC uses gpu
+# Enable memory growth
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
     try:
@@ -16,97 +16,110 @@ if gpus:
     except RuntimeError as e:
         print(e)
 
+# Image data generator
+class ImageDataGenerator(tf.keras.utils.Sequence):
+    def __init__(self, csv_path, image_dir, batch_size=32, image_size=(512, 512), shuffle=True):
+        self.df = pd.read_csv(csv_path)
+        self.image_dir = image_dir
+        self.batch_size = batch_size
+        self.image_size = image_size
+        self.shuffle = shuffle
+        self.indices = np.arange(len(self.df))
+        self.on_epoch_end()
 
-def load_data(csv_path, image_dir, image_size=(256, 256), is_test=False):
-    print(f"Loading data from {csv_path}")
-    print(f"Images will be loaded from {image_dir}")
+    def __len__(self):
+        return int(np.floor(len(self.df) / self.batch_size))
 
-    df = pd.read_csv(csv_path)
-    print(f"Successfully loaded CSV with {len(df)} rows")
+    def __getitem__(self, index):
+        indices = self.indices[index * self.batch_size:(index + 1) * self.batch_size]
+        batch_df = self.df.iloc[indices]
 
-    X = []
-    y = [] if not is_test else None
+        X, y = self.__data_generation(batch_df)
+        return X, y
 
-    for i, row in enumerate(df.itertuples()):
-        if i % 100 == 0:  # Print progress every 100 images
-            print(f"Processing image {i}/{len(df)}")
+    def __data_generation(self, batch_df):
+        X, y = [], []
 
-        # For test data, use id as filename
-        filename = row.id if is_test else row.file_name
-        if not is_test:
+        for _, row in batch_df.iterrows():
+            image_path = os.path.join(self.image_dir, row.file_name)
             label = row.label
 
-        image_path = os.path.join(image_dir, filename)
-        try:
             image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
             if image is not None:
-                image = cv2.resize(image, image_size)
+                image = cv2.resize(image, self.image_size)
                 X.append(image)
-                if not is_test:
-                    y.append(label)
-            else:
-                print(f"Error: Could not read image at {image_path}")
-        except Exception as e:
-            print(f"Error processing image {filename}: {e}")
-            continue
+                y.append(label)
 
-    X = np.array(X).astype(np.float32) / 255.0
-    print(f"Shape of X before reshaping: {X.shape}")
-    X = X.reshape(X.shape[0], image_size[0], image_size[1], 1)
-
-    if not is_test:
+        X = np.array(X).astype(np.float32) / 255.0
+        X = X.reshape(X.shape[0], self.image_size[0], self.image_size[1], 1)
         y = np.array(y).astype(np.float32)
-        print(f"Final dataset shape: X={X.shape}, y={y.shape}")
+
         return X, y
-    else:
-        print(f"Final test data shape: X={X.shape}")
-        return X, None
 
-print("Loading training data...")
-csv_path = 'archive/train.csv'
-image_dir = 'archive/'
-X_train, y_train = load_data(csv_path, image_dir)
-print("Training data loaded successfully")
+    def on_epoch_end(self):
+        if self.shuffle:
+            np.random.shuffle(self.indices)
 
-print("Loading test data...")
-csv_path = 'archive/test.csv'
-X_test, _ = load_data(csv_path, image_dir, is_test=True)
-print("Test data loaded successfully")
+# Load Data Using Generator
+csv_path = '/kaggle/input/ai-vs-human-generated-dataset/train.csv'
+image_dir = '/kaggle/input/ai-vs-human-generated-dataset/'
+batch_size = 32
 
+train_generator = ImageDataGenerator(csv_path, image_dir, batch_size=batch_size)
+
+# Model Definition
 def create_model(input_shape):
-    print(f"Creating model with input shape: {input_shape}")
     model = keras.Sequential([
-        layers.Conv2D(32, (3, 3), activation='relu', input_shape=input_shape),
+        layers.Conv2D(32, (3, 3), activation=None, input_shape=input_shape, kernel_regularizer=keras.regularizers.l2(0.001)),
+        layers.BatchNormalization(),
+        layers.LeakyReLU(),
         layers.MaxPooling2D((2, 2)),
-        layers.Conv2D(64, (3, 3), activation='relu'),
+
+        layers.Conv2D(64, (3, 3), activation=None, kernel_regularizer=keras.regularizers.l2(0.001)),
+        layers.BatchNormalization(),
+        layers.LeakyReLU(),
         layers.MaxPooling2D((2, 2)),
+
+        layers.Conv2D(128, (3, 3), activation=None, kernel_regularizer=keras.regularizers.l2(0.001)),
+        layers.BatchNormalization(),
+        layers.LeakyReLU(),
+        layers.MaxPooling2D((2, 2)),
+        layers.Dropout(0.25),
+
+        layers.Conv2D(256, (3, 3), activation=None, kernel_regularizer=keras.regularizers.l2(0.001)),
+        layers.BatchNormalization(),
+        layers.LeakyReLU(),
+        layers.MaxPooling2D((2, 2)),
+        layers.Dropout(0.3),
+
         layers.Flatten(),
-        layers.Dense(64, activation='relu'),
+        layers.Dense(256, activation=None, kernel_regularizer=keras.regularizers.l2(0.001)),
+        layers.BatchNormalization(),
+        layers.LeakyReLU(),
+        layers.Dropout(0.4),
+
+        layers.Dense(128, activation=None, kernel_regularizer=keras.regularizers.l2(0.001)),
+        layers.BatchNormalization(),
+        layers.LeakyReLU(),
+        layers.Dropout(0.4),
+
         layers.Dense(1, activation='sigmoid')
     ])
-    model.compile(optimizer=keras.optimizers.Adam(learning_rate=0.001), 
-                  loss='binary_crossentropy', 
+
+    model.compile(optimizer=keras.optimizers.Adam(learning_rate=0.0005),
+                  loss='binary_crossentropy',
                   metrics=['accuracy'])
-    print("Model created and compiled successfully")
-    model.summary()  # Print model architecture
+    
+    model.summary()
     return model
 
-print("\nInitializing model...")
-model = create_model((256, 256, 1))
+# Initialize Model
+model = create_model((512, 512, 1))
 
-print("\nStarting model training...")
-history = model.fit(X_train, y_train, epochs=5, batch_size=64, 
-                    validation_split=0.2, verbose=1)
-print("Model training completed")
+# Train Model Using Generator
+model.fit(train_generator, epochs=10, verbose=1)
 
-print("\nSaving model...")
+# Save Model
 model.save("model_params.h5")
-print("Model saved successfully")
 
-print("\nEvaluating model on training data...")
-train_loss, train_accuracy = model.evaluate(X_train, y_train, verbose=1)
-print(f'Training Accuracy: {train_accuracy:.4f}')
-
-#print("\nEvaluating model on test data...")
-#test_loss, test_accuracy = model.evaluate(X_test, verbose=1)
-#print(f'Test Accuracy: {test_accuracy:.4f}')
+print("\nTraining Completed!")
