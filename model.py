@@ -6,6 +6,17 @@ import pandas as pd
 import cv2
 import os
 
+# temp code to make sure PC uses gpu
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+    try:
+        tf.config.experimental.set_memory_growth(gpus[0], True)
+        tf.config.set_visible_devices(gpus[0], 'GPU')
+        print("Using GPU:", gpus[0])
+    except RuntimeError as e:
+        print(e)
+
+
 def load_data(csv_path, image_dir, image_size=(256, 256), is_test=False):
     print(f"Loading data from {csv_path}")
     print(f"Images will be loaded from {image_dir}")
