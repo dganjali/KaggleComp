@@ -84,7 +84,7 @@ print("\nInitializing model...")
 model = create_model((256, 256, 1))
 
 print("\nStarting model training...")
-history = model.fit(X_train, y_train, epochs=20, batch_size=64, 
+history = model.fit(X_train, y_train, epochs=5, batch_size=64, 
                     validation_split=0.2, verbose=1)
 print("Model training completed")
 
