@@ -6,7 +6,7 @@ import pandas as pd
 import cv2
 import os
 
-def load_data(csv_path, image_dir, image_size=(128, 128), is_test=False):
+def load_data(csv_path, image_dir, image_size=(64, 64), is_test=False):
     print(f"Loading data from {csv_path}")
     print(f"Images will be loaded from {image_dir}")
 
@@ -17,7 +17,7 @@ def load_data(csv_path, image_dir, image_size=(128, 128), is_test=False):
     y = [] if not is_test else None
 
     for i, row in enumerate(df.itertuples()):
-        if i % 50 == 0:  # Print progress every 100 images
+        if i % 100 == 0:  # Print progress every 100 images
             print(f"Processing image {i}/{len(df)}")
 
         # For test data, use id as filename
@@ -37,8 +37,10 @@ def load_data(csv_path, image_dir, image_size=(128, 128), is_test=False):
                 print(f"Error: Could not read image at {image_path}")
         except Exception as e:
             print(f"Error processing image {filename}: {e}")
+            continue
 
     X = np.array(X).astype(np.float32) / 255.0
+    print(f"Shape of X before reshaping: {X.shape}")
     X = X.reshape(X.shape[0], image_size[0], image_size[1], 1)
 
     if not is_test:
@@ -67,26 +69,22 @@ def create_model(input_shape):
         layers.MaxPooling2D((2, 2)),
         layers.Conv2D(64, (3, 3), activation='relu'),
         layers.MaxPooling2D((2, 2)),
-        layers.Conv2D(128, (3, 3), activation='relu'),
-        layers.MaxPooling2D((2, 2)),
         layers.Flatten(),
-        layers.Dense(128, activation='relu'),
-        layers.Dropout(0.5),
+        layers.Dense(64, activation='relu'),
         layers.Dense(1, activation='sigmoid')
     ])
-    model.compile(optimizer=keras.optimizers.Adam(learning_rate=0.001),
-                  loss='binary_crossentropy',
+    model.compile(optimizer=keras.optimizers.Adam(learning_rate=0.001), 
+                  loss='binary_crossentropy', 
                   metrics=['accuracy'])
     print("Model created and compiled successfully")
     model.summary()  # Print model architecture
     return model
 
 print("\nInitializing model...")
-model = create_model((128, 128, 1))
+model = create_model((64, 64, 1))
 
 print("\nStarting model training...")
-# Reduce batch size
-history = model.fit(X_train, y_train, epochs=20, batch_size=32, 
+history = model.fit(X_train, y_train, epochs=20, batch_size=64, 
                     validation_split=0.2, verbose=1)
 print("Model training completed")
 
@@ -100,3 +98,4 @@ print(f'Training Accuracy: {train_accuracy:.4f}')
 
 #print("\nEvaluating model on test data...")
 #test_loss, test_accuracy = model.evaluate(X_test, verbose=1)
+#print(f'Test Accuracy: {test_accuracy:.4f}')
