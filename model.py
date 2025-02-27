@@ -6,7 +6,7 @@ import pandas as pd
 import cv2
 import os
 
-def load_data(csv_path, image_dir, image_size=(256, 256), is_test=False):
+def load_data(csv_path, image_dir, image_size=(128, 128), is_test=False):
     print(f"Loading data from {csv_path}")
     print(f"Images will be loaded from {image_dir}")
 
@@ -17,7 +17,7 @@ def load_data(csv_path, image_dir, image_size=(256, 256), is_test=False):
     y = [] if not is_test else None
 
     for i, row in enumerate(df.itertuples()):
-        if i % 100 == 0:  # Print progress every 100 images
+        if i % 50 == 0:  # Print progress every 100 images
             print(f"Processing image {i}/{len(df)}")
 
         # For test data, use id as filename
@@ -26,12 +26,17 @@ def load_data(csv_path, image_dir, image_size=(256, 256), is_test=False):
             label = row.label
 
         image_path = os.path.join(image_dir, filename)
-        image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-        if image is not None:
-            image = cv2.resize(image, image_size)
-            X.append(image)
-            if not is_test:
-                y.append(label)
+        try:
+            image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+            if image is not None:
+                image = cv2.resize(image, image_size)
+                X.append(image)
+                if not is_test:
+                    y.append(label)
+            else:
+                print(f"Error: Could not read image at {image_path}")
+        except Exception as e:
+            print(f"Error processing image {filename}: {e}")
 
     X = np.array(X).astype(np.float32) / 255.0
     X = X.reshape(X.shape[0], image_size[0], image_size[1], 1)
@@ -77,10 +82,11 @@ def create_model(input_shape):
     return model
 
 print("\nInitializing model...")
-model = create_model((256, 256, 1))
+model = create_model((128, 128, 1))
 
 print("\nStarting model training...")
-history = model.fit(X_train, y_train, epochs=20, batch_size=64, 
+# Reduce batch size
+history = model.fit(X_train, y_train, epochs=20, batch_size=32, 
                     validation_split=0.2, verbose=1)
 print("Model training completed")
 
@@ -94,4 +100,3 @@ print(f'Training Accuracy: {train_accuracy:.4f}')
 
 #print("\nEvaluating model on test data...")
 #test_loss, test_accuracy = model.evaluate(X_test, verbose=1)
-#print(f'Test Accuracy: {test_accuracy:.4f}')
